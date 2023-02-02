@@ -1,0 +1,6 @@
+"0","set.seed(123)"
+"0","# fit the neural network"
+"0","nn_model <- neuralnet::neuralnet(charges ~ ., data=train_nn, hidden = 5, act.fct = 'tanh')"
+"0",""
+"0","# plot this neural network if you wish to"
+"0","# plot(nn_model)"

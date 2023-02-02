@@ -1,0 +1,3 @@
+"0",""
+"0","# First observation is that the hyperparameter tuning does nothing to improve the model score."
+"0","# The regression model performs better than the linear models but the polynomial regression outperforms the regression model"

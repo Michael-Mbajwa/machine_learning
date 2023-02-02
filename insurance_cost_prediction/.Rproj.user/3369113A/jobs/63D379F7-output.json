@@ -1,0 +1,6 @@
+[1,"Installing 'randomForest' ...\n"]
+[2,"trying URL 'https://cran.rstudio.com/bin/macosx/contrib/4.2/randomForest_4.7-1.1.tgz'\n"]
+[2,"Content type 'application/x-gzip' length 256701 bytes (250 KB)\n==============="]
+[1,"The downloaded binary packages are in\n"]
+[1,"\t/var/folders/kn/w_kcz5bn00d0d1404zh0hz280000gn/T//Rtmp9wGbZ1/downloaded_packages\n"]
+[2,"===================================\ndownloaded 250 KB\n\n\n\n✔ Package 'randomForest' successfully installed.\n"]

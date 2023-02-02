@@ -1,0 +1,102 @@
+"0","# Load datasets for project"
+"0","library(dplyr) # for analysis"
+"2","
+Attaching package: ‘dplyr’
+
+"
+"2","The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+"
+"2","The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+"
+"0","library(ggplot2) # for plots"
+"0","library(magrittr) # for pipes %>%"
+"0","library(janitor)"
+"2","
+Attaching package: ‘janitor’
+
+"
+"2","The following objects are masked from ‘package:stats’:
+
+    chisq.test, fisher.test
+
+"
+"0","library(moments) # for skewness calculation"
+"0","library(tidyr)"
+"2","
+Attaching package: ‘tidyr’
+
+"
+"2","The following object is masked from ‘package:magrittr’:
+
+    extract
+
+"
+"0","library(caret) # one hot encoding"
+"2","Loading required package: lattice
+"
+"0","library(MLmetrics) # machine learning metrics"
+"2","
+Attaching package: ‘MLmetrics’
+
+"
+"2","The following objects are masked from ‘package:caret’:
+
+    MAE, RMSE
+
+"
+"2","The following object is masked from ‘package:base’:
+
+    Recall
+
+"
+"0","library(glmnet) # for lasso model"
+"2","Loading required package: Matrix
+"
+"2","
+Attaching package: ‘Matrix’
+
+"
+"2","The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+"
+"2","Loaded glmnet 4.1-6
+"
+"0","library(rpart) # for regression tree model"
+"0","library(RWeka) # For M5 Model"
+"0","library(neuralnet) # Neural Network"
+"2","
+Attaching package: ‘neuralnet’
+
+"
+"2","The following object is masked from ‘package:dplyr’:
+
+    compute
+
+"
+"0","library(randomForest) # Random Forest"
+"2","randomForest 4.7-1.1
+"
+"2","Type rfNews() to see new features/changes/bug fixes.
+"
+"2","
+Attaching package: ‘randomForest’
+
+"
+"2","The following object is masked from ‘package:ggplot2’:
+
+    margin
+
+"
+"2","The following object is masked from ‘package:dplyr’:
+
+    combine
+
+"

@@ -1,0 +1,6 @@
+"0","set.seed(1)"
+"0",""
+"0","#use 80% of dataset as training set and 20% as test set"
+"0","sample <- sample(c(TRUE, FALSE), nrow(medical_data), replace=TRUE, prob=c(0.8,0.2))"
+"0","train  <- medical_data[sample, ]"
+"0","test   <- medical_data[!sample, ]"

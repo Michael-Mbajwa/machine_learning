@@ -1,0 +1,3 @@
+"0","# I will train a polynomial regression model similar to the advanced linear regression"
+"0","# I got the best results using of age in 3rd degree and bmi in 2nd degreee."
+"0","polyreg_model <- lm(charges ~ poly(age, degree = 3) + poly(bmi, degree = 2) + sex + children + region + bmi_rng*smoker, data=train_PR)"

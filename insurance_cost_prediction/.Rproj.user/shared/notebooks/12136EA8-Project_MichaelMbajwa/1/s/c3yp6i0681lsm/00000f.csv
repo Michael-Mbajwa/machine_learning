@@ -1,0 +1,2 @@
+"0","# since duplicates exist in our data, I will drop them"
+"0","medical_data %>% dplyr::distinct() -> medical_data"

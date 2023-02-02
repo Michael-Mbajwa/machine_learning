@@ -1,0 +1,1 @@
+"0","linear_model <- lm(charges ~ age + bmi + sex + children + region + bmi*smoker, data=train) # The ~. means I am using all the features"

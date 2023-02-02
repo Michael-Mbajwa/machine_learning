@@ -1,0 +1,690 @@
+# TITLE: Actuarial Science Project: Development of a Machine Learning model that can accurately estimate health insurance costs of individuals,
+## Name: Michael Mbajwa
+## Student Number: 0210152807
+## Email: michael.mbajwa.001@student.uni.lu
+
+
+```{r}
+# Install required packages to run project
+install.packages("tidyverse")
+install.packages("janitor")
+install.packages("moments")
+install.packages("caret")
+install.packages("MLmetrics")
+install.packages("glmnet")
+install.packages("rpart")
+install.packages("RWeka")
+install.packages("neuralnet")
+install.packages("randomForest")
+```
+
+
+```{r}
+# Load datasets for project
+library(dplyr) # for analysis
+library(ggplot2) # for plots
+library(magrittr) # for pipes %>%
+library(janitor)
+library(moments) # for skewness calculation
+library(tidyr)
+library(caret) # one hot encoding
+library(MLmetrics) # machine learning metrics
+library(glmnet) # for lasso model
+library(rpart) # for regression tree model
+library(RWeka) # For M5 Model
+library(neuralnet) # Neural Network
+library(randomForest) # Random Forest
+```
+
+
+```{r}
+# Load the data
+medical_data <- readr::read_csv("insurance.csv")
+```
+
+
+# Preliminary analysis of the data
+### Are there missing values in our data?
+```{r}
+medical_data %>%
+  dplyr::summarise_each(funs(sum(is.na(.))))
+
+# Looking at the result, we see that there exists no missing values in our data, hence, I do not have to worry about handling missing data.
+```
+
+
+### Are there duplicates in our data?
+```{r}
+medical_data %>%
+  janitor::get_dupes()
+
+# It is highly unlikely two patients share the same information for all columns. So I will remove the duplicated row.
+```
+```{r}
+# since duplicates exist in our data, I will drop them
+medical_data %>% dplyr::distinct() -> medical_data
+```
+
+## What does the statistical summary of the data tell us
+```{r}
+medical_data %>% summary()
+
+# The most important observation can be made for the charges column. We can see that the Mean is much greater than the Median. This is some indication that the column might be right skewed.
+```
+
+### I'll inpsect the distributions of the various columns
+### I will start with measuring skewness and kurtosis.
+```{r}
+# skewness
+medical_data %>%
+  select(c(age, bmi, children, charges)) %>%
+  moments::skewness()
+
+# While all the skew values are positive indicating some right side skew, we can observe that the columns charges which is our target variable is more skewed to the right.
+```
+```{r}
+#kurtosis
+medical_data %>%
+  select(c(age, bmi, children, charges)) %>%
+  moments::kurtosis()
+
+# The columns age and bmi have kurtosis less than 3. We have way less outliers in the data.
+# The columns charges and children have kurtosis greater than 3. For charges especially, we can see that there exists more outliers. We will visualize the data next.
+```
+
+```{r}
+# the skewness and kurtosis result in a table
+skewness_kurtosis <- data.frame(Columns=c("Age", "BMI", "Children", "Charges"),
+                                Skew = c(0.05471929, 0.28359557, 0.93636861, 1.51369024),
+                                Kurtosis = c(1.755758, 2.942766, 3.195719, 4.593743))
+dplyr::as_tibble(skewness_kurtosis)
+```
+
+# Data Analysis with visualisations
+```{r}
+medical_data %>%
+  ggplot2::ggplot(ggplot2::aes(x=charges)) +
+  ggplot2::geom_histogram(color="white", fill="red", position="identity", alpha=0.7) +
+  ggplot2::theme_classic() +
+  ggplot2::ggtitle(label="Histogram of Charges") +
+  ggplot2::scale_y_continuous(expand = c(0,0)) +
+  ggplot2::scale_x_continuous(expand = c(0,0))
+
+# We can observe the following looking at the histogram below
+# As earlier mentioned, charges is right skewed with a long tail to its right.
+# Most of the patients in the data have healthcare costs between 0-15,000.
+# At 40,000, we can see some sort of rise like there is another interesting distribution around that area.
+# There exists outliers but it's quite reasonable that some patients have high health costs.
+```
+
+### Relationship of other features to charges
+
+```{r}
+# Let's look at histogram for charges but in terms of patient's sex
+medical_data %>%
+  ggplot2::ggplot(ggplot2::aes(x=charges, fill=sex)) +
+  ggplot2::geom_histogram(position="dodge") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme_classic() +
+  scale_color_brewer(palette="Dark2") +
+  ggplot2::ggtitle(label="Histogram of Charges for males and females") +
+  ggplot2::scale_y_continuous(expand = c(0,0)) +
+  ggplot2::scale_x_continuous(expand = c(0,0))
+
+# Looking at the plot, we can observe that there is no significant difference in the distribution of health insurance costs for men and women. Although we can in some sense say men may have higher health costs.
+```
+
+
+
+
+```{r}
+# Let's look at histogram for charges but in relation to if a patient smokes or not
+medical_data %>%
+  ggplot2::ggplot(ggplot2::aes(x=charges, fill=smoker)) +
+  ggplot2::geom_histogram(position="dodge") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme_classic() +
+  scale_color_brewer(palette="Set1") +
+  ggplot2::ggtitle(label="Histogram of Charges for smokers and non-smokers") +
+  ggplot2::scale_y_continuous(expand = c(0,0)) +
+  ggplot2::scale_x_continuous(expand = c(0,0))
+
+# This plot is quite interesting. We can clearly see that health costs are higher for smokers. Majority of non smokers seem to have cost around 0-20,000. While most smokers have cost 18000-25000 and 35000-50000.
+```
+
+```{r}
+# Let's look at relationship of charges to number of children
+# This histogram doesn't tell us much.
+medical_data %>%
+  mutate(children = as.factor(children)) %>%
+  ggplot2::ggplot(ggplot2::aes(x=charges, fill=children)) +
+  ggplot2::geom_histogram(position="dodge") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme_classic() +
+  scale_color_brewer(palette="Set1") +
+  ggplot2::ggtitle(label="Histogram of Charges for smokers and non-smokers") +
+  ggplot2::scale_y_continuous(expand = c(0,0)) +
+  ggplot2::scale_x_continuous(expand = c(0,0))
+```
+
+
+
+```{r}
+# Let's look at relationship of charges to number of children using a boxplot instead
+medical_data %>%
+  mutate(children = as.factor(children)) %>%
+  ggplot2::ggplot(ggplot2::aes(x=children, y=charges, fill=children)) +
+  ggplot2::stat_boxplot(geom = "errorbar", width = 0.25) + 
+  geom_boxplot() +
+  guides(fill = guide_legend(title = "Number of Children"))+
+  ggplot2::theme_minimal() +
+  ggplot2::theme_classic() +
+  ggplot2::ggtitle(label="Boxplot of charges against number of children")
+
+# I would say there seems to be a slight increase in costs as number of children increase. But not so significant.
+```
+
+### Check if the categorical features of the dataset are imbalanced or balanced
+```{r}
+table(medical_data$sex)
+table(medical_data$region)
+table(medical_data$smoker)
+
+# We can see that the data is evenly distributed for regions and gender
+# There is an uneven distribution for smoker: There are way more non smokers in our data.
+```
+
+### Check correlation of features and the target variable
+```{r}
+medical_data %>%
+  mutate_if(is.character, as.factor) %>%
+  mutate_if(is.factor, as.numeric) %>%
+  cor()
+
+# It is advisable to drop features that are strongly correlated with one another.
+# Looking at the correlation table, we don't see any such features.
+# In terms of correlation between feature and target variable, we observe that smoker, age and bmi are the most correlated to charges.
+```
+
+
+## TRAINING AND MODEL EVALUATION
+
+
+### Split data into train and test set
+```{r}
+set.seed(1)
+
+#use 80% of dataset as training set and 20% as test set
+sample <- sample(c(TRUE, FALSE), nrow(medical_data), replace=TRUE, prob=c(0.8,0.2))
+train  <- medical_data[sample, ]
+test   <- medical_data[!sample, ]
+```
+
+```{r}
+# check if the split is effective
+print(nrow(train))
+print(nrow(test))
+```
+
+
+# We will start with a basic Multiple Linear regression
+```{r}
+linear_model <- lm(charges ~ ., data=train) # The ~. means I am using all the features
+```
+
+```{r}
+linear_model
+# Interpreting the linear model
+# We wont interpret the intercept in this case as it is impossible to have all features as 0. age and bmi for instance can't be zero.
+# For any age increase, we would expect 265.53 increase in cost all things considered
+# Each additional child increases cost by 501.46 
+# Not being a smoker decreases cost by 23819.15
+# Being male increases cost by 90.05
+# Increase in bmi increases cost by 328.71
+# Basically the linear model is saying being a smoker, old age, higher bmi and more children increases health costs
+```
+
+```{r}
+summary(linear_model)
+
+# Looking at the summary statistics
+# Residuals: True value - Predicted value. Looking at the maximum error, we can see our model wrongly predicts cost by a margin of 29745.6. Quite huge. Majority of the predictions can be seen to be 2800 over the true value and 1540 under the true value.
+# The Adjusted R-squared value  0.7561 shows us that almost 75% of the variation in cost can be explained by the model.
+```
+
+```{r}
+# test the simple linear model
+linear_model_predict <- predict(linear_model, test)
+
+# calculate evaluation metrics
+linear_model_mae <- MLmetrics::MAE(linear_model_predict, test$charges) # Mean Absolute Error (MAE)
+linear_model_Rmse <- MLmetrics::RMSE(linear_model_predict, test$charges) # Root Mean Square Error (RMSE)
+linear_model_R2 <- MLmetrics::R2_Score(linear_model_predict, test$charges) # adjusted r2 score
+
+# result
+linear_model_result <- cbind("MAE" = linear_model_mae, "RMSE" = linear_model_Rmse, "R2 score" = linear_model_R2)
+linear_model_result
+
+# The MAE means predicted value differs 4289 from true value
+# The RMSE means predicted value differs 6362 from true value
+# The R2 score means 71% of the variation in cost can be explained by the model.
+```
+Our linear model is not good enough so I will first improve our linear model then try out other models
+
+
+### A more complex Linear Regression
+```{r}
+# A more advanced Linear model
+
+# first we do some feature engineering
+# create a copy of the data so we do not modify the original data
+train_Reg <- train
+test_Reg <- test
+
+# According to CDC: https://www.cdc.gov/healthyweight/assessing/index.html
+# If your BMI is 18.5 to 24.9, it falls within the Healthy Weight range. If your BMI is 25.0 to 29.9, it falls within the overweight range. If your BMI is 30.0 or higher, it falls within the obese range.
+# I will create a new column: 1 -> Obese, 0 -> Otherwise. This will act as some form of weight
+
+train_Reg$bmi_rng <- ifelse(train_Reg$bmi>=30 , 1, 0)
+test_Reg$bmi_rng <- ifelse(test_Reg$bmi>=30 , 1, 0)
+```
+
+```{r}
+# Let's train the model
+# But first:
+# So far, we have only considered each feature's individual contribution to the outcome. What if certain features have a combined impact on the dependent variable? For instance, smoking and bmi may have harmful effects separately, but it is reasonable to assume that their combined effect may be worse than the sum of each one alone. When two features have a combined effect, this is known as an interaction. If we suspect that two variables interact, we can test this hypothesis by adding their interaction to the model
+
+# so what I will do is to find the combined effect of the three features most correlated with charges and see which combination gives the best r2 score
+
+linear_model_one <- lm(charges ~ . + bmi_rng*smoker, data=train_Reg)
+print("bmi_rng*smoker")
+print(summary(linear_model_one)$r.squared)
+
+linear_model_two <- lm(charges ~ . + bmi*smoker, data=train_Reg)
+print("bmi*smoker")
+print(summary(linear_model_two)$r.squared)
+
+linear_model_three <- lm(charges ~ . + age*smoker, data=train_Reg)
+print("age*smoker")
+print(summary(linear_model_three)$r.squared)
+
+linear_model_four <- lm(charges ~ . + age*bmi, data=train_Reg)
+print("age*bmi")
+print(summary(linear_model_four)$r.squared)
+
+linear_model_five <- lm(charges ~ . + age*bmi_rng, data=train_Reg)
+print("age*bmi_rng")
+print(summary(linear_model_five)$r.squared)
+
+# So we see that the combined effect of the new column bmi_rng and smoker gives the best result (Far better than what our previous linear model gave.)
+# We have what we need to train our new linear regression model.
+```
+
+```{r}
+# train the model now
+linear_model_adv <- lm(charges ~ . + bmi_rng*smoker, data=train_Reg)
+
+# get predictions
+linear_model_adv_predict <- predict(linear_model_adv, test_Reg)
+
+# calculate evaluation metrics
+linear_model_adv_mae <- MLmetrics::MAE(linear_model_adv_predict, test$charges) # Mean Absolute Error (MAE)
+linear_model_adv_Rmse <- MLmetrics::RMSE(linear_model_adv_predict, test$charges) # Root Mean Square Error (RMSE)
+linear_model_adv_R2 <- MLmetrics::R2_Score(linear_model_adv_predict, test$charges) # adjusted r2 score
+
+# result
+linear_model_adv_result <- cbind("MAE" = linear_model_adv_mae, "RMSE" = linear_model_adv_Rmse, "R2 score" = linear_model_adv_R2)
+linear_model_adv_result
+```
+
+
+
+### Lasso Regression
+```{r}
+# get response and feature variables and change categorical values to numerical values
+y_train <- train_Reg$charges
+x_train <- data.matrix(train_Reg[, c("age", "sex", "bmi", "children", "smoker", "region", "bmi_rng")])
+
+y_test <- test_Reg$charges
+x_test <- data.matrix(test_Reg[, c("age", "sex", "bmi", "children", "smoker", "region", "bmi_rng")])
+```
+
+
+```{r}
+#fit lasso regression model using 5-fold cross-validation
+# I am doing this so I can find the lambda value that fits the model best
+cv_lasso_model <- cv.glmnet(x_train, y_train, alpha = 1, nfolds = 5) # alpha is set to 1 for lasso
+best_lambda <- cv_lasso_model$lambda.min
+
+#display optimal lambda value
+best_lambda
+```
+
+
+```{r}
+# I will train the best lasso model and display the coefficients
+best_lasso_model <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda)
+coef(best_lasso_model)
+
+# The coefficients can be interpreted similarly to how we interpreted those of linear regression
+# An increase in age by 1 unit leads to an increase in charges by 263.17871
+# and so on for the rest
+```
+
+
+```{r}
+# Let's evaluate the model
+#use fitted best model to make predictions
+lasso_model_predicted <- predict(best_lasso_model, s = best_lambda, newx = x_test)
+
+# calculate evaluation metrics
+lasso_model_mae <- MLmetrics::MAE(lasso_model_predicted, y_test)
+lasso_model_Rmse <- MLmetrics::RMSE(lasso_model_predicted, y_test)
+lasso_model_R2 <- MLmetrics::R2_Score(lasso_model_predicted, y_test)
+
+# result
+lasso_model_result <- cbind("MAE" = lasso_model_mae, "RMSE" = lasso_model_Rmse, "R2 score" = lasso_model_R2)
+lasso_model_result
+
+# The results of lasso are identical to that of the first simple Linear Regression. I would expect this since there isn't multicollinearity in our data and lasso works best when there exists multicollinearity in the data.
+
+# Multicollinearity in regression analysis occurs when two or more predictor variables are highly correlated to each other, such that they do not provide unique or independent information in the regression model.
+```
+
+
+
+### Polynomial Regression
+
+```{r}
+# I will train a polynomial regression model similar to the advanced linear regression
+# I got the best results using of age in 3rd degree and bmi in 2nd degreee.
+polyreg_model <- lm(charges ~ poly(age, degree = 3) + poly(bmi, degree = 2) + sex + children + region + bmi_rng*smoker, data=train_PR)
+```
+
+
+```{r}
+# test the polynomial regression model
+polyreg_model_predict <- predict(polyreg_model, test_PR)
+
+# calculate evaluation metrics
+polyreg_model_mae <- MLmetrics::MAE(polyreg_model_predict, test_PR$charges)
+polyreg_model_Rmse <- MLmetrics::RMSE(polyreg_model_predict, test_PR$charges)
+polyreg_model_R2 <- MLmetrics::R2_Score(polyreg_model_predict, test_PR$charges)
+
+# result
+polyreg_model_result <- cbind("MAE" = polyreg_model_mae, "RMSE" = polyreg_model_Rmse, "R2 score" = polyreg_model_R2)
+polyreg_model_result
+
+# The polynomial regression slightly outperforms our linear regression model. We can observe that all the evaluation metrics have improved.
+```
+
+
+
+### Regression Trees
+```{r}
+# To get the optimal regression tree model, there are some interesting hyper-parameters that I will play around.
+# To do that, I will implement a grid that I will manually loop over. The grid will contain these hyperparameters:
+# minsplit: the minimum number of observations that must exist in a node in order for a split to be attempted.
+# maxdepth: Set the maximum depth of any node of the final tree, with the root node counted as depth 0. Values greater than 30 rpart will give nonsense results on 32-bit machines.
+
+# define grid
+hyper_grid <- expand.grid(
+  minsplit = seq(10, 20, 5),
+  maxdepth = seq(10, 30, 5)
+)
+
+regression_result = data.frame() # after training each model with a specific combination of hyperparameters, I will evaluate the model on the test set and store the result in this dataframe
+
+for (i in 1:nrow(hyper_grid)) {
+  # get minsplit, maxdepth, xval values at row i
+  min_split <- hyper_grid$minsplit[i]
+  max_depth <- hyper_grid$maxdepth[i]
+
+  # train a model and store in the list
+  regression_tree <- rpart(
+    formula = charges ~ .,
+    data    = train,
+    control = list(minsplit = min_split, maxdepth = max_depth)
+    )
+  
+  # evaluate the performance of the regression tree
+  reg_tree_predict <- predict(regression_tree, test)
+
+  # calculate evaluation metrics
+  reg_tree_mae <- MLmetrics::MAE(reg_tree_predict, test$charges) # Mean Absolute Error (MAE)
+  reg_tree_Rmse <- MLmetrics::RMSE(reg_tree_predict, test$charges) # Root Mean Square Error (RMSE)
+  reg_tree_R2 <- MLmetrics::R2_Score(reg_tree_predict, test$charges) # adjusted r2 score
+  
+  output <- c(min_split, max_depth, reg_tree_mae, reg_tree_Rmse, reg_tree_R2)
+  
+  # Using rbind() to append the output of one iteration to the dataframe
+  regression_result = rbind(regression_result, output)
+}
+
+# naming the columns
+colnames(regression_result)<-c("minsplit", "maxdepth", "MAE", "RMSE", "R2_Score")
+```
+
+
+```{r}
+# Analyzing the result
+regression_result
+
+# First observation is that the hyperparameter tuning does nothing to improve the model score.
+# The regression model performs better than the linear models but the polynomial regression outperforms the regression model
+```
+
+
+### Bagging
+In a nutshell, Bagging combines and averages multiple models. 
+```{r}
+# I will perform a 10-fold cross validation to find the best model
+set.seed(123)
+ctrl <- caret::trainControl(method = "cv",  number = 10) 
+
+# CV bagged model
+bagged_cv <- caret::train(
+  charges ~ .,
+  data = train,
+  method = "treebag",
+  trControl = ctrl,
+  importance = TRUE
+  )
+
+# Let's evaluate the best model
+bagged_cv_predicted <- predict(bagged_cv, test)
+
+# calculate evaluation metrics
+bagged_cv_mae <- MLmetrics::MAE(bagged_cv_predicted, test$charges) # Mean Absolute Error (MAE)
+bagged_cv_Rmse <- MLmetrics::RMSE(bagged_cv_predicted, test$charges) # Root Mean Square Error (RMSE)
+bagged_cv_R2 <- MLmetrics::R2_Score(bagged_cv_predicted, test$charges) # adjusted r2 score
+
+# result
+bagged_cv_result <- cbind("MAE" = bagged_cv_mae, "RMSE" = bagged_cv_Rmse, "R2 score" = bagged_cv_R2)
+bagged_cv_result
+
+# the bagging model is an improvement on all other models except the polynomial regression
+```
+
+
+
+### M5 Model
+```{r}
+# Some feature engineering:
+# Convert categorical values to numerical values using one hot encoding
+# for train data
+dummy <- dummyVars(" ~ .", data=train)
+train_ohe <- data.frame(predict(dummy, newdata=train))
+
+# for test data
+dummy <- dummyVars(" ~ .", data=test)
+test_ohe <- data.frame(predict(dummy, newdata=test))
+```
+
+
+```{r}
+# copy data
+train_M5 <- train_ohe
+test_M5 <- test_ohe
+
+# I will first fit model
+M5_model <- RWeka::M5P(charges ~ ., data=train_M5)
+
+# evaluate the performance of M5 model
+M5_model_predict <- predict(M5_model, test_M5)
+
+# calculate evaluation metrics
+M5_model_mae <- MLmetrics::MAE(M5_model_predict, test_M5$charges) # Mean Absolute Error (MAE)
+M5_model_Rmse <- MLmetrics::RMSE(M5_model_predict, test_M5$charges) # Root Mean Square Error (RMSE)
+M5_model_R2 <- MLmetrics::R2_Score(M5_model_predict, test_M5$charges) # adjusted r2 score
+
+# result
+M5_model_result <- cbind("MAE" = M5_model_mae, "RMSE" = M5_model_Rmse, "R2 score" = M5_model_R2)
+M5_model_result
+
+# The M5 model performs better than all other models except polynomial regression
+```
+
+
+
+# Random Forest
+
+```{r}
+# Now I will now train a random forest regressor
+
+# I will set seed for reproducibility
+set.seed(123)
+
+#fit the random forest model
+rf_model <- randomForest(charges ~ ., data=train, mtry=3, importance=FALSE)
+
+# mtry is the Number of variables randomly sampled as candidates at each split. Using 3 gave me the best result.
+# When importance of predictors wasn't accessed, the model seemed to perform much better
+rf_model
+```
+--Observation
+We see that Random Forest model can explain 85.85% of variation in our data.
+Now we can test it and see how it performs on our test data
+
+
+```{r}
+# Let's evaluate the performance of the random forest model
+rf_model_predict <- predict(rf_model, test)
+
+# calculate evaluation metrics
+rf_model_mae <- MLmetrics::MAE(rf_model_predict, test$charges) # Mean Absolute Error (MAE)
+rf_model_Rmse <- MLmetrics::RMSE(rf_model_predict, test$charges) # Root Mean Square Error (RMSE)
+rf_model_R2 <- MLmetrics::R2_Score(rf_model_predict, test$charges) # adjusted r2 score
+
+# result
+rf_model_result <- cbind("MAE" = rf_model_mae, "RMSE" = rf_model_Rmse, "R2 score" = rf_model_R2)
+rf_model_result
+```
+
+
+```{r}
+# How about we try a random search to see if we can find a better model
+metric <- "Rsquared"
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+set.seed(123)
+mtry <- sqrt(6)
+rf_random <- train(charges~., data=train, method="rf", metric=metric, tuneLength=15, trControl=control)
+```
+
+
+```{r}
+print(rf_random)
+plot(rf_random)
+```
+
+
+```{r}
+# evaluate the performance of the random forest model gotten from random search
+random_rf_model_predict <- predict(rf_random, test)
+
+# calculate evaluation metrics
+random_rf_model_mae <- MLmetrics::MAE(random_rf_model_predict, test$charges) # Mean Absolute Error (MAE)
+random_rf_model_Rmse <- MLmetrics::RMSE(random_rf_model_predict, test$charges) # Root Mean Square Error (RMSE)
+random_rf_model_R2 <- MLmetrics::R2_Score(random_rf_model_predict, test$charges) # adjusted r2 score
+
+# result
+random_rf_model_result <- cbind("MAE" = random_rf_model_mae, "RMSE" = random_rf_model_Rmse, "R2 score" = random_rf_model_R2)
+random_rf_model_result
+```
+The first random forest model outperforms this random forest model gotten from random search.
+So, we will stick with that model for reporting.
+
+
+
+### Neural Network
+```{r}
+# Data preparation
+
+#  Neural networks work best when the input data are scaled to a narrow range around zero. So I will normalize train and test data
+
+# for train data
+process <- preProcess(as.data.frame(train), method=c("range"))
+train_nn <- predict(process, as.data.frame(train))
+
+# for test data
+process <- preProcess(as.data.frame(test), method=c("range"))
+test_nn <- predict(process, as.data.frame(test))
+
+
+# Convert categorical values to numerical values using one hot encoding
+# for train data
+dummy <- dummyVars(" ~ .", data=train_nn)
+train_nn <- data.frame(predict(dummy, newdata=train_nn))
+
+# for test data
+dummy <- dummyVars(" ~ .", data=test_nn)
+test_nn <- data.frame(predict(dummy, newdata=test_nn))
+
+
+# Now our data is ready for the neural network
+```
+
+
+
+```{r}
+set.seed(123)
+# fit the neural network
+nn_model <- neuralnet::neuralnet(charges ~ ., data=train_nn, hidden = 5, act.fct = 'tanh')
+
+# plot this neural network if you wish to
+# plot(nn_model)
+```
+
+
+
+```{r}
+set.seed(123)
+# Evaluate the neural network model
+nn_results <- neuralnet::compute(nn_model, test_nn)
+nn_prediction <- nn_results$net.result
+
+# calculate evaluation metrics
+nn_mae <- MLmetrics::MAE(nn_prediction, test_nn$charges) # Mean Absolute Error (MAE)
+nn_Rmse <- MLmetrics::RMSE(nn_prediction, test_nn$charges) # Root Mean Square Error (RMSE)
+nn_R2 <- MLmetrics::R2_Score(nn_prediction, test_nn$charges) # adjusted r2 score
+
+# result
+nn_result <- cbind("MAE" = nn_mae, "RMSE" = nn_Rmse, "R2 score" = nn_R2)
+nn_result
+```
+
+
+## Compile Results
+```{r}
+# compile all model results
+all_results <- data.frame(Models = c("Linear Model", "Lasso Model", "Polynomial Regression","Regression Tree", "Bagging", "M5", "Random Forest", "Neural Network"),
+                             MAE = c(linear_model_adv_result[1],lasso_model_result[1],polyreg_model_result[1], regression_result[1,3], bagged_cv_result[1], M5_model_result[1], rf_model_result[1], nn_result[1]),
+                             RMSE = c(linear_model_adv_result[2],lasso_model_result[2],polyreg_model_result[2], regression_result[1,4], bagged_cv_result[2], M5_model_result[2], rf_model_result[2], nn_result[2]),
+                             R2_Score = c(linear_model_adv_result[3],lasso_model_result[3],polyreg_model_result[3], regression_result[1,5], bagged_cv_result[3], M5_model_result[3], rf_model_result[3], nn_result[3]))
+
+
+# The performance of our models can be ranked thus:
+all_results %>%
+  arrange(R2_Score)
+```
+

@@ -1,0 +1,8 @@
+"0","# compile all model results"
+"0","all_results <- data.frame(Models = c(""Linear Model"", ""Lasso Model"", ""Polynomial Regression"",""Regression Tree"", ""Bagging"", ""M5"", ""Random Forest"", ""Neural Network""),"
+"0","                             MAE = c(linear_model_adv_result[1],lasso_model_result[1],polyreg_model_result[1], regression_result[1,3], bagged_cv_result[1], M5_model_result[1], rf_model_result[1], nn_result[1]),"
+"0","                             RMSE = c(linear_model_adv_result[2],lasso_model_result[2],polyreg_model_result[2], regression_result[1,4], bagged_cv_result[2], M5_model_result[2], rf_model_result[2], nn_result[2]),"
+"0","                             R2_Score = c(linear_model_adv_result[3],lasso_model_result[3],polyreg_model_result[3], regression_result[1,5], bagged_cv_result[3], M5_model_result[3], rf_model_result[3], nn_result[3]))"
+"0",""
+"0","all_results %>%"
+"0","  arrange(R2_Score)"

@@ -1,0 +1,6 @@
+"0",""
+"0","# We can observe the following looking at the histogram below"
+"0","# As earlier mentioned, charges is right skewed with a long tail to its right."
+"0","# Most of the patients in the data have healthcare costs between 0-15,000."
+"0","# At 40,000, we can see some sort of rise like there is another interesting distribution around that area."
+"0","# There exists outliers but it's quite reasonable that some patients have high health costs."

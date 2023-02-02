@@ -1,0 +1,5 @@
+"0","metric <- ""Rsquared"""
+"0","control <- trainControl(method=""repeatedcv"", number=10, repeats=3, search=""random"")"
+"0","set.seed(123)"
+"0","mtry <- sqrt(6)"
+"0","rf_random <- train(charges~., data=train, method=""rf"", metric=metric, tuneLength=15, trControl=control)"

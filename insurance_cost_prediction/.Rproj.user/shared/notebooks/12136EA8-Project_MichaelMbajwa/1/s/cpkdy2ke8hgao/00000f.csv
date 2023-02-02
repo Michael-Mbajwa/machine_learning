@@ -1,0 +1,5 @@
+"0","# the skewness and kurtosis result in a table"
+"0","skewness_kurtosis <- data.frame(Columns=c(""Age"", ""BMI"", ""Children"", ""Charges""),"
+"0","                                Skew = c(0.05471929, 0.28359557, 0.93636861, 1.51369024),"
+"0","                                Kurtosis = c(1.755758, 2.942766, 3.195719, 4.593743))"
+"0","dplyr::as_tibble(skewness_kurtosis)"
